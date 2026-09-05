@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Keel — Trade within your rules",
+  title: "Keel — Pre-trade clearance",
   description:
     "A personal risk governor for Binance Agent OS that checks every trade before execution.",
   other: {
@@ -12,8 +12,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  colorScheme: "dark",
-  themeColor: "#0b0d0f",
+  colorScheme: "light",
+  themeColor: "#e7e4dc",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

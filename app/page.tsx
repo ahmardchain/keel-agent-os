@@ -620,7 +620,7 @@ export default function Home() {
           <span className="brand-mark" aria-hidden="true">K</span>
           <span className="brand-copy">
             <strong>Keel</strong>
-            <small>Trade permission</small>
+            <small>Pre-trade clearance</small>
           </span>
         </a>
         <div className="topbar-meta">
@@ -642,8 +642,8 @@ export default function Home() {
       <div className="workspace" id="top">
         <aside className="risk-rail">
           <div className="rail-masthead">
-            <span>Policy dock</span>
-            <strong>05 rules active</strong>
+            <span>Personal policy</span>
+            <strong>05 controls</strong>
           </div>
           <section className="rules-block">
             <div className="section-heading">
@@ -702,8 +702,8 @@ export default function Home() {
             <div className="capital-title">
               <span className="capital-index">01</span>
               <span>
-                <strong>Demo account</strong>
-                <small>Protected capital context</small>
+                <strong>Account context</strong>
+                <small>Demo portfolio · no custody</small>
               </span>
             </div>
             <div className="capital-metric capital-primary">
@@ -729,10 +729,10 @@ export default function Home() {
           <div className="command-section">
             <div className="command-heading">
               <div>
-                <div className="section-kicker">02 / Trade clearance</div>
-                <h2>Permission before position.</h2>
+                <div className="section-kicker">Trade instruction</div>
+                <h2>What do you want Keel to clear?</h2>
               </div>
-              <p>Describe one Spot buy. Keel turns intent, market evidence, and your limits into one defensible decision.</p>
+              <p>One Spot buy, checked against market evidence and your own limits before anything can reach execution.</p>
             </div>
             <div className="command-box">
               <textarea
@@ -815,6 +815,7 @@ export default function Home() {
           <div
             className={`decision-card decision-${analysis.decision.toLowerCase()}`}
             data-decision={analysis.decision}
+            aria-live="polite"
           >
             <div className="decision-header">
               <div>
@@ -926,7 +927,7 @@ export default function Home() {
           </div>
 
           <footer className="activity-footer">
-            <div className="activity-status">
+            <div className="activity-status" aria-live="polite">
               <span className="pulse-ring" />
               <span>{notice}</span>
             </div>
