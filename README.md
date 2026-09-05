@@ -2,7 +2,7 @@
 
 **A personal risk governor for Binance Agent OS.**
 
-[Live demo](https://keel-agent-os.ahmardchain.chatgpt.site) · [Agent skill](agent/keel/SKILL.md) · [Deterministic evaluator](agent/keel/scripts/evaluate-risk.mjs)
+[Live demo](https://keel-agent-os.ahmardchain.chatgpt.site) · [Binance Agent OS proof](https://chatgpt.com/s/t_6a9c48c8e5d48191b6fd7148ebf844c0) · [Agent skill](agent/keel/SKILL.md) · [Deterministic evaluator](agent/keel/scripts/evaluate-risk.mjs)
 
 Keel sits between a trader's intent and the order button. It reads current Binance market and account evidence, applies the trader's own loss, concentration, cooldown, velocity, and liquidity rules, then returns one deterministic decision:
 

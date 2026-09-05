@@ -132,6 +132,27 @@ a:focus-visible {
   font-weight: 650;
 }
 
+.network-proof {
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  text-decoration: none;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.network-proof:hover {
+  border-color: #4a4020;
+  background: rgba(240, 185, 11, 0.06);
+  color: var(--text);
+}
+
+.network-proof svg {
+  color: var(--signal);
+}
+
 .status-dot {
   display: inline-block;
   width: 7px;

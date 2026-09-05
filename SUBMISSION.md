@@ -18,7 +18,9 @@
 > Built for the @Binance Agent OS Mini Hackathon, Track A: live market evidence, behavioral Judge Mode, deterministic APPROVE / RESIZE / PAUSE / BLOCK decisions, tamper-evident risk receipts, and a human gate before execution.
 >
 > Demo: [video]
-> GitHub: [repository]
+> Live app: https://keel-agent-os.ahmardchain.chatgpt.site
+> Agent OS proof: https://chatgpt.com/s/t_6a9c48c8e5d48191b6fd7148ebf844c0
+> GitHub: https://github.com/ahmardchain/keel-agent-os
 > #BinanceAgentOS
 
 Replace both bracketed links before posting.
@@ -29,10 +31,11 @@ Replace both bracketed links before posting.
 - [ ] Show at least one live read and one confirmation-gated order draft.
 - [ ] Show all three Judge Mode cases and download one risk receipt.
 - [ ] Edit one personal rule and verify the downloaded receipt in the interface.
-- [ ] Keep the real Agent OS conversation visible long enough for judges to verify the Binance tool call.
+- [x] Create a shareable Agent OS conversation containing a live Binance market-data call.
+- [ ] Keep the shared Agent OS conversation visible long enough for judges to verify the Binance tool call.
 - [ ] Mention `npm run demo:judge` as the one-command reproducibility check.
 - [ ] Keep real funds minimal; Spot only.
-- [ ] Publish this repository publicly and replace the GitHub placeholder above.
+- [x] Publish this repository publicly and replace the GitHub placeholder above.
 - [ ] Record a clear screen demo and replace the video placeholder above.
 - [ ] Follow `@Binance` and repost the official announcement.
 - [ ] Reply to or quote-repost the announcement with the demo and GitHub links.

@@ -9,6 +9,7 @@ import {
   CircleDollarSign,
   Clock3,
   Download,
+  ExternalLink,
   FileCheck2,
   Gauge,
   LockKeyhole,
@@ -50,6 +51,8 @@ import {
   type Policy,
   type RiskReceipt,
 } from "@/lib/keel";
+
+const AGENT_PROOF_URL = "https://chatgpt.com/s/t_6a9c48c8e5d48191b6fd7148ebf844c0";
 
 const DEMO_ACCOUNT: AccountSnapshot = {
   equity: 4860.2,
@@ -618,9 +621,15 @@ export default function Home() {
           <span>Keel</span>
         </a>
         <div className="topbar-meta">
-          <span className="network-badge">
-            <span className="status-dot" /> Binance Agent OS
-          </span>
+          <a
+            className="network-badge network-proof"
+            href={AGENT_PROOF_URL}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Open the live Binance Agent OS conversation proof"
+          >
+            <span className="status-dot" /> Binance Agent OS <ExternalLink size={12} />
+          </a>
           <span className="session-label">
             {activeScenario ? `Judge case ${activeScenario.number}` : "Public market · Demo account"}
           </span>
