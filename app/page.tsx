@@ -783,35 +783,6 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="market-strip" aria-label="Current market evidence">
-            <div className="market-identity">
-              <span className="asset-glyph">{analysis.symbol.slice(0, 1)}</span>
-              <div>
-                <strong>{analysis.symbol.replace("USDT", "")}</strong>
-                <span>/ USDT</span>
-              </div>
-            </div>
-            <div className="market-stat">
-              <span>Last</span>
-              <strong>{money(market.lastPrice)}</strong>
-            </div>
-            <div className="market-stat">
-              <span>24h</span>
-              <strong className={market.priceChangePercent >= 0 ? "positive" : "negative"}>
-                {market.priceChangePercent >= 0 ? "+" : ""}{market.priceChangePercent.toFixed(2)}%
-              </strong>
-            </div>
-            <div className="market-stat">
-              <span>Spread</span>
-              <strong>{market.spreadBps.toFixed(1)} bps</strong>
-            </div>
-            <Sparkline values={market.closes} />
-            <div className="live-stamp">
-              <span className={market.source === "live" ? "status-dot" : "status-dot muted-dot"} />
-              {sourceLabel} · {timestamp} UTC
-            </div>
-          </div>
-
           <div
             className={`decision-card decision-${analysis.decision.toLowerCase()}`}
             data-decision={analysis.decision}
@@ -923,6 +894,35 @@ export default function Home() {
                   <Download size={15} /> Download JSON
                 </button>
               </div>
+            </div>
+          </div>
+
+          <div className="market-strip" aria-label="Current market evidence">
+            <div className="market-identity">
+              <span className="asset-glyph">{analysis.symbol.slice(0, 1)}</span>
+              <div>
+                <strong>{analysis.symbol.replace("USDT", "")}</strong>
+                <span>/ USDT</span>
+              </div>
+            </div>
+            <div className="market-stat">
+              <span>Last</span>
+              <strong>{money(market.lastPrice)}</strong>
+            </div>
+            <div className="market-stat">
+              <span>24h</span>
+              <strong className={market.priceChangePercent >= 0 ? "positive" : "negative"}>
+                {market.priceChangePercent >= 0 ? "+" : ""}{market.priceChangePercent.toFixed(2)}%
+              </strong>
+            </div>
+            <div className="market-stat">
+              <span>Spread</span>
+              <strong>{market.spreadBps.toFixed(1)} bps</strong>
+            </div>
+            <Sparkline values={market.closes} />
+            <div className="live-stamp">
+              <span className={market.source === "live" ? "status-dot" : "status-dot muted-dot"} />
+              {sourceLabel} · {timestamp} UTC
             </div>
           </div>
 
