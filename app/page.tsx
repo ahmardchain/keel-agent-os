@@ -642,37 +642,12 @@ export default function Home() {
       <div className="workspace" id="top">
         <aside className="risk-rail">
           <div className="rail-masthead">
-            <span>Control panel</span>
-            <strong>SPOT / 01</strong>
+            <span>Policy dock</span>
+            <strong>05 rules active</strong>
           </div>
-          <section className="account-block">
-            <div className="rail-section-label"><span>01</span> Capital</div>
-            <div className="eyebrow">Protected equity</div>
-            <div className="equity-value">{money(account.equity)}</div>
-            <div className="account-line">
-              <span>Available</span>
-              <strong>{money(account.available)}</strong>
-            </div>
-          </section>
-
-          <section className="risk-meter" aria-label="Daily loss buffer">
-            <div className="section-heading">
-              <span><em>02</em> Daily loss buffer</span>
-              <strong>{dailyLossBuffer}%</strong>
-            </div>
-            <div className="meter-track">
-              <span style={{ width: `${dailyLossBuffer}%` }} />
-            </div>
-            <p>
-              {account.dayPnl <= -activePolicy.maxDailyLossPercent
-                ? "Daily stop reached. New exposure is blocked."
-                : `${Math.max(0, activePolicy.maxDailyLossPercent - lossUsed).toFixed(1)}% remains before the hard stop.`}
-            </p>
-          </section>
-
           <section className="rules-block">
             <div className="section-heading">
-              <span><em>03</em> Active rulebook</span>
+              <span>Active rulebook</span>
               <button className="rule-edit-button" type="button" onClick={openRulebook}>
                 <SlidersHorizontal size={13} /> Edit
               </button>
@@ -701,6 +676,21 @@ export default function Home() {
             </ul>
           </section>
 
+          <section className="policy-buffer" aria-label="Daily loss buffer">
+            <div className="policy-buffer-head">
+              <span>Loss capacity</span>
+              <strong>{dailyLossBuffer}%</strong>
+            </div>
+            <div className="meter-track">
+              <span style={{ width: `${dailyLossBuffer}%` }} />
+            </div>
+            <p>
+              {account.dayPnl <= -activePolicy.maxDailyLossPercent
+                ? "Daily stop reached. New exposure is blocked."
+                : `${Math.max(0, activePolicy.maxDailyLossPercent - lossUsed).toFixed(1)}% remains before the hard stop.`}
+            </p>
+          </section>
+
           <div className="rail-footnote">
             <LockKeyhole size={15} />
             <span>Keel can prepare a policy-sized order. Only you can confirm execution.</span>
@@ -708,13 +698,41 @@ export default function Home() {
         </aside>
 
         <section className="main-panel">
+          <section className="capital-ribbon" aria-label="Demo account risk context">
+            <div className="capital-title">
+              <span className="capital-index">01</span>
+              <span>
+                <strong>Demo account</strong>
+                <small>Protected capital context</small>
+              </span>
+            </div>
+            <div className="capital-metric capital-primary">
+              <span>Equity</span>
+              <strong>{money(account.equity)}</strong>
+            </div>
+            <div className="capital-metric">
+              <span>Available</span>
+              <strong>{money(account.available)}</strong>
+            </div>
+            <div className="capital-metric">
+              <span>Day P/L</span>
+              <strong className={account.dayPnl >= 0 ? "positive" : "negative"}>
+                {account.dayPnl >= 0 ? "+" : ""}{account.dayPnl.toFixed(1)}%
+              </strong>
+            </div>
+            <div className="capital-metric">
+              <span>Loss streak</span>
+              <strong>{account.lossStreak} / {activePolicy.lossStreakCooldown}</strong>
+            </div>
+          </section>
+
           <div className="command-section">
             <div className="command-heading">
               <div>
-                <div className="section-kicker">Decision workspace</div>
-                <h2>Check the trade before it moves.</h2>
+                <div className="section-kicker">02 / Trade clearance</div>
+                <h2>Permission before position.</h2>
               </div>
-              <p>Describe one Spot buy. Your rulebook controls the size.</p>
+              <p>Describe one Spot buy. Keel turns intent, market evidence, and your limits into one defensible decision.</p>
             </div>
             <div className="command-box">
               <textarea
