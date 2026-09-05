@@ -314,3 +314,19 @@ export async function createRiskReceipt(args: {
     },
   };
 }
+
+export async function verifyRiskReceipt(value: unknown) {
+  if (!value || typeof value !== "object") return false;
+  const receipt = value as Partial<RiskReceipt>;
+  if (
+    receipt.schema !== "keel-risk-receipt-v1" ||
+    !receipt.payload ||
+    receipt.integrity?.algorithm !== "SHA-256" ||
+    receipt.integrity.canonicalization !== "sorted-json-v1" ||
+    typeof receipt.integrity.digest !== "string"
+  ) {
+    return false;
+  }
+
+  return (await sha256(canonicalize(receipt.payload))) === receipt.integrity.digest;
+}

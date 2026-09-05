@@ -10,22 +10,44 @@ import {
   Clock3,
   Download,
   FileCheck2,
+  Gauge,
   LockKeyhole,
   Radio,
   RotateCcw,
   ShieldCheck,
+  SlidersHorizontal,
+  Upload,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ChangeEvent,
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 import {
   createRiskReceipt,
   DEFAULT_POLICY,
   evaluateRisk,
   extractIntent,
+  verifyRiskReceipt,
   type AccountSnapshot,
   type Analysis,
   type Decision,
   type MarketSnapshot,
+  type Policy,
   type RiskReceipt,
 } from "@/lib/keel";
 
@@ -144,12 +166,106 @@ const JUDGE_SCENARIOS: JudgeScenario[] = [
   },
 ];
 
+type EditablePolicyKey =
+  | "maxAssetPercent"
+  | "maxDailyLossPercent"
+  | "lossStreakCooldown"
+  | "maxFiveMinuteMovePercent"
+  | "maxSpreadBps";
+
+const RULE_FIELDS: Array<{
+  key: EditablePolicyKey;
+  label: string;
+  description: string;
+  suffix: string;
+  min: number;
+  max: number;
+  step: number;
+}> = [
+  {
+    key: "maxAssetPercent",
+    label: "Maximum per asset",
+    description: "Largest share of equity one asset may occupy.",
+    suffix: "%",
+    min: 1,
+    max: 100,
+    step: 0.5,
+  },
+  {
+    key: "maxDailyLossPercent",
+    label: "Daily loss stop",
+    description: "Block new exposure after this daily drawdown.",
+    suffix: "%",
+    min: 0.1,
+    max: 100,
+    step: 0.1,
+  },
+  {
+    key: "lossStreakCooldown",
+    label: "Loss-streak cooldown",
+    description: "Pause after this many consecutive losing trades.",
+    suffix: "losses",
+    min: 1,
+    max: 20,
+    step: 1,
+  },
+  {
+    key: "maxFiveMinuteMovePercent",
+    label: "Five-minute velocity",
+    description: "Pause entries during unusually fast price movement.",
+    suffix: "%",
+    min: 0.1,
+    max: 100,
+    step: 0.1,
+  },
+  {
+    key: "maxSpreadBps",
+    label: "Maximum clean spread",
+    description: "Reduce order size when execution quality is worse.",
+    suffix: "bps",
+    min: 0.1,
+    max: 1000,
+    step: 0.1,
+  },
+];
+
 function money(value: number, digits = 2) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: digits,
   }).format(value);
+}
+
+function parsePolicy(value: unknown): Policy | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Partial<Policy>;
+  const valid =
+    Number.isFinite(Number(candidate.maxAssetPercent)) &&
+    Number.isFinite(Number(candidate.maxDailyLossPercent)) &&
+    Number.isFinite(Number(candidate.lossStreakCooldown)) &&
+    Number.isFinite(Number(candidate.maxFiveMinuteMovePercent)) &&
+    Number.isFinite(Number(candidate.maxSpreadBps)) &&
+    (candidate.maxAssetPercent ?? 0) >= 1 &&
+    (candidate.maxAssetPercent ?? 101) <= 100 &&
+    (candidate.maxDailyLossPercent ?? 0) >= 0.1 &&
+    (candidate.maxDailyLossPercent ?? 101) <= 100 &&
+    (candidate.lossStreakCooldown ?? 0) >= 1 &&
+    (candidate.lossStreakCooldown ?? 21) <= 20 &&
+    (candidate.maxFiveMinuteMovePercent ?? 0) >= 0.1 &&
+    (candidate.maxFiveMinuteMovePercent ?? 101) <= 100 &&
+    (candidate.maxSpreadBps ?? 0) >= 0.1 &&
+    (candidate.maxSpreadBps ?? 1001) <= 1000;
+
+  if (!valid) return null;
+  return {
+    ...DEFAULT_POLICY,
+    maxAssetPercent: Number(candidate.maxAssetPercent),
+    maxDailyLossPercent: Number(candidate.maxDailyLossPercent),
+    lossStreakCooldown: Math.round(Number(candidate.lossStreakCooldown)),
+    maxFiveMinuteMovePercent: Number(candidate.maxFiveMinuteMovePercent),
+    maxSpreadBps: Number(candidate.maxSpreadBps),
+  };
 }
 
 function Sparkline({ values }: { values: number[] }) {
@@ -181,15 +297,20 @@ function Sparkline({ values }: { values: number[] }) {
 export default function Home() {
   const [intent, setIntent] = useState(JUDGE_SCENARIOS[1].prompt);
   const [account, setAccount] = useState<AccountSnapshot>(DEMO_ACCOUNT);
+  const [policy, setPolicy] = useState<Policy>({ ...DEFAULT_POLICY });
+  const [draftPolicy, setDraftPolicy] = useState<Policy>({ ...DEFAULT_POLICY });
+  const [rulebookOpen, setRulebookOpen] = useState(false);
   const [market, setMarket] = useState<MarketSnapshot>(INITIAL_MARKET);
   const [analysis, setAnalysis] = useState<Analysis>(() =>
     evaluateRisk(JUDGE_SCENARIOS[1].prompt, DEMO_ACCOUNT, INITIAL_MARKET),
   );
   const [activeScenarioId, setActiveScenarioId] = useState<JudgeScenario["id"] | null>(null);
   const [receipt, setReceipt] = useState<RiskReceipt | null>(null);
+  const [receiptVerification, setReceiptVerification] = useState<"idle" | "valid" | "invalid">("idle");
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "prepared">("idle");
   const [notice, setNotice] = useState("Collecting live Binance market evidence");
   const receiptSequence = useRef(0);
+  const receiptInputRef = useRef<HTMLInputElement>(null);
 
   const fetchMarket = useCallback(async (symbol: string) => {
     try {
@@ -207,11 +328,12 @@ export default function Home() {
     nextIntent: string,
     nextAccount: AccountSnapshot,
     nextMarket: MarketSnapshot,
+    nextPolicy: Policy,
     nextNotice: string,
     sequence: number,
   ) {
     if (sequence !== receiptSequence.current) return;
-    const nextAnalysis = evaluateRisk(nextIntent, nextAccount, nextMarket);
+    const nextAnalysis = evaluateRisk(nextIntent, nextAccount, nextMarket, nextPolicy);
 
     setAccount(nextAccount);
     setMarket(nextMarket);
@@ -219,6 +341,7 @@ export default function Home() {
     setStatus("ready");
     setNotice(nextNotice);
     setReceipt(null);
+    setReceiptVerification("idle");
 
     const nextReceipt = await createRiskReceipt({
       rawIntent: nextIntent,
@@ -233,9 +356,24 @@ export default function Home() {
   useEffect(() => {
     let active = true;
     const sequence = ++receiptSequence.current;
+    let activePolicy: Policy = { ...DEFAULT_POLICY };
+    try {
+      const stored = window.localStorage.getItem("keel-policy-v1");
+      const parsed = stored ? parsePolicy(JSON.parse(stored)) : null;
+      if (parsed) activePolicy = parsed;
+    } catch {
+      // Invalid device-local preferences fail safely to the documented defaults.
+    }
     fetchMarket("SOLUSDT").then(async (snapshot) => {
       if (!active || sequence !== receiptSequence.current) return;
-      const nextAnalysis = evaluateRisk(JUDGE_SCENARIOS[1].prompt, DEMO_ACCOUNT, snapshot);
+      const nextAnalysis = evaluateRisk(
+        JUDGE_SCENARIOS[1].prompt,
+        DEMO_ACCOUNT,
+        snapshot,
+        activePolicy,
+      );
+      setPolicy(activePolicy);
+      setDraftPolicy(activePolicy);
       setMarket(snapshot);
       setAnalysis(nextAnalysis);
       setStatus("ready");
@@ -259,6 +397,7 @@ export default function Home() {
     const sequence = ++receiptSequence.current;
     setStatus("loading");
     setReceipt(null);
+    setReceiptVerification("idle");
     setNotice("Agent is collecting market and policy evidence");
 
     const scenario = JUDGE_SCENARIOS.find((item) => item.id === activeScenarioId);
@@ -267,6 +406,7 @@ export default function Home() {
         intent,
         scenario.account,
         { ...scenario.market, timestamp: new Date().toISOString() },
+        DEFAULT_POLICY,
         `${scenario.expected} reproduced from deterministic judge evidence`,
         sequence,
       );
@@ -279,6 +419,7 @@ export default function Home() {
       intent,
       DEMO_ACCOUNT,
       snapshot,
+      policy,
       "Simulation only · no order has been sent",
       sequence,
     );
@@ -289,6 +430,7 @@ export default function Home() {
     setActiveScenarioId(null);
     setStatus("loading");
     setReceipt(null);
+    setReceiptVerification("idle");
     setNotice("Refreshing public Binance market evidence");
     const parsed = extractIntent(intent);
     const snapshot = await fetchMarket(parsed.symbol);
@@ -296,6 +438,7 @@ export default function Home() {
       intent,
       DEMO_ACCOUNT,
       snapshot,
+      policy,
       "Live check ready · demo account · no order sent",
       sequence,
     );
@@ -307,11 +450,13 @@ export default function Home() {
     setIntent(scenario.prompt);
     setStatus("loading");
     setReceipt(null);
+    setReceiptVerification("idle");
     setNotice(`Loading judge case ${scenario.number}`);
     await commitCheck(
       scenario.prompt,
       scenario.account,
       { ...scenario.market, timestamp: new Date().toISOString() },
+      DEFAULT_POLICY,
       `${scenario.expected} reproduced from deterministic judge evidence`,
       sequence,
     );
@@ -327,6 +472,7 @@ export default function Home() {
     setIntent(value);
     setActiveScenarioId(null);
     setReceipt(null);
+    setReceiptVerification("idle");
     setStatus("idle");
     setNotice("Intent changed · run a new live check");
   }
@@ -336,10 +482,54 @@ export default function Home() {
     setIntent(JUDGE_SCENARIOS[1].prompt);
     setActiveScenarioId(null);
     setAccount(DEMO_ACCOUNT);
-    setAnalysis(evaluateRisk(JUDGE_SCENARIOS[1].prompt, DEMO_ACCOUNT, market));
+    setAnalysis(evaluateRisk(JUDGE_SCENARIOS[1].prompt, DEMO_ACCOUNT, market, policy));
     setStatus("ready");
     setReceipt(null);
+    setReceiptVerification("idle");
     setNotice("Reset complete · run a new check to issue a receipt");
+  }
+
+  function openRulebook() {
+    setDraftPolicy({ ...policy });
+    setRulebookOpen(true);
+  }
+
+  async function applyRulebook(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const nextPolicy = parsePolicy(draftPolicy);
+    if (!nextPolicy) {
+      setNotice("Rulebook values are outside the allowed range");
+      return;
+    }
+
+    const sequence = ++receiptSequence.current;
+    setPolicy(nextPolicy);
+    setRulebookOpen(false);
+    setActiveScenarioId(null);
+    setStatus("loading");
+    setReceipt(null);
+    setReceiptVerification("idle");
+    setNotice("Saving your rulebook and re-running the check");
+    try {
+      window.localStorage.setItem("keel-policy-v1", JSON.stringify(nextPolicy));
+    } catch {
+      // The active session still uses the policy when device storage is unavailable.
+    }
+
+    const parsed = extractIntent(intent);
+    const snapshot = await fetchMarket(parsed.symbol);
+    await commitCheck(
+      intent,
+      DEMO_ACCOUNT,
+      snapshot,
+      nextPolicy,
+      "Custom rulebook active · new receipt issued",
+      sequence,
+    );
+  }
+
+  function restoreDefaultRules() {
+    setDraftPolicy({ ...DEFAULT_POLICY });
   }
 
   function downloadReceipt() {
@@ -355,6 +545,32 @@ export default function Home() {
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(url);
+  }
+
+  async function verifyReceiptFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      if (file.size > 1_000_000) {
+        setReceiptVerification("invalid");
+        setNotice("Receipt verification failed · JSON file exceeds the 1 MB safety limit");
+        return;
+      }
+      const candidate = JSON.parse(await file.text()) as unknown;
+      const valid = await verifyRiskReceipt(candidate);
+      setReceiptVerification(valid ? "valid" : "invalid");
+      setNotice(
+        valid
+          ? "Receipt verified · evidence, policy, and decision match the SHA-256 fingerprint"
+          : "Receipt verification failed · the payload or fingerprint has been altered",
+      );
+    } catch {
+      setReceiptVerification("invalid");
+      setNotice("Receipt verification failed · this is not valid Keel receipt JSON");
+    } finally {
+      event.target.value = "";
+    }
   }
 
   const decisionCopy: Record<Decision, { title: string; text: string }> = {
@@ -384,10 +600,11 @@ export default function Home() {
     hour12: false,
     timeZone: "UTC",
   });
+  const activePolicy = analysis.policySnapshot;
   const lossUsed = Math.max(0, -account.dayPnl);
   const dailyLossBuffer = Math.max(
     0,
-    Math.round(((DEFAULT_POLICY.maxDailyLossPercent - lossUsed) / DEFAULT_POLICY.maxDailyLossPercent) * 100),
+    Math.round(((activePolicy.maxDailyLossPercent - lossUsed) / activePolicy.maxDailyLossPercent) * 100),
   );
   const sourceLabel =
     market.source === "live" ? "Live" : market.source === "judge" ? "Judge fixture" : "Fallback fixture";
@@ -430,33 +647,39 @@ export default function Home() {
               <span style={{ width: `${dailyLossBuffer}%` }} />
             </div>
             <p>
-              {account.dayPnl <= -DEFAULT_POLICY.maxDailyLossPercent
+              {account.dayPnl <= -activePolicy.maxDailyLossPercent
                 ? "Daily stop reached. New exposure is blocked."
-                : `${Math.max(0, DEFAULT_POLICY.maxDailyLossPercent - lossUsed).toFixed(1)}% remains before the hard stop.`}
+                : `${Math.max(0, activePolicy.maxDailyLossPercent - lossUsed).toFixed(1)}% remains before the hard stop.`}
             </p>
           </section>
 
           <section className="rules-block">
             <div className="section-heading">
               <span>Active rulebook</span>
-              <span className="rule-count">04</span>
+              <button className="rule-edit-button" type="button" onClick={openRulebook}>
+                <SlidersHorizontal size={13} /> Edit
+              </button>
             </div>
             <ul className="rule-list">
               <li>
                 <ShieldCheck size={16} />
-                <span><strong>15%</strong> max per asset</span>
+                <span><strong>{activePolicy.maxAssetPercent}%</strong> max per asset</span>
               </li>
               <li>
                 <CircleDollarSign size={16} />
-                <span><strong>3%</strong> daily loss cap</span>
+                <span><strong>{activePolicy.maxDailyLossPercent}%</strong> daily loss cap</span>
               </li>
               <li>
                 <Clock3 size={16} />
-                <span>Pause after <strong>3 losses</strong></span>
+                <span>Pause after <strong>{activePolicy.lossStreakCooldown} losses</strong></span>
               </li>
               <li>
                 <Activity size={16} />
-                <span>Reject above <strong>4% / 5m</strong></span>
+                <span>Reject above <strong>{activePolicy.maxFiveMinuteMovePercent}% / 5m</strong></span>
+              </li>
+              <li>
+                <Gauge size={16} />
+                <span>Haircut above <strong>{activePolicy.maxSpreadBps} bps</strong></span>
               </li>
             </ul>
           </section>
@@ -612,13 +835,17 @@ export default function Home() {
               </section>
             </div>
 
-            <div className="receipt-strip">
+            <div className={`receipt-strip receipt-${receiptVerification}`}>
               <div className="receipt-proof">
                 <span className="receipt-icon"><FileCheck2 size={17} /></span>
                 <span>
                   <strong>Keel Risk Receipt</strong>
                   <small>
-                    {receipt
+                    {receiptVerification === "valid"
+                      ? "Integrity verified · protected payload matches its fingerprint"
+                      : receiptVerification === "invalid"
+                        ? "Verification failed · receipt content or fingerprint changed"
+                        : receipt
                       ? `${receipt.receiptId} · SHA-256 ${receipt.integrity.digest.slice(0, 12)}…`
                       : status === "loading"
                         ? "Hashing evidence and policy snapshot…"
@@ -626,14 +853,31 @@ export default function Home() {
                   </small>
                 </span>
               </div>
-              <button
-                className="receipt-button"
-                type="button"
-                onClick={downloadReceipt}
-                disabled={!receipt}
-              >
-                <Download size={15} /> Download JSON
-              </button>
+              <div className="receipt-actions">
+                <input
+                  ref={receiptInputRef}
+                  className="sr-only"
+                  type="file"
+                  accept="application/json,.json"
+                  onChange={verifyReceiptFile}
+                  aria-label="Choose a Keel receipt to verify"
+                />
+                <button
+                  className="receipt-button verify-button"
+                  type="button"
+                  onClick={() => receiptInputRef.current?.click()}
+                >
+                  <Upload size={15} /> Verify JSON
+                </button>
+                <button
+                  className="receipt-button"
+                  type="button"
+                  onClick={downloadReceipt}
+                  disabled={!receipt}
+                >
+                  <Download size={15} /> Download JSON
+                </button>
+              </div>
             </div>
           </div>
 
@@ -656,6 +900,62 @@ export default function Home() {
           </footer>
         </section>
       </div>
+
+      <Dialog
+        open={rulebookOpen}
+        onOpenChange={(open) => {
+          setRulebookOpen(open);
+          if (open) setDraftPolicy({ ...policy });
+        }}
+      >
+        <DialogContent className="rulebook-dialog">
+          <DialogHeader>
+            <div className="dialog-kicker">Personal policy</div>
+            <DialogTitle>Your rulebook</DialogTitle>
+            <DialogDescription>
+              These limits control live checks and are stored only on this device. Judge cases stay locked to the documented defaults.
+            </DialogDescription>
+          </DialogHeader>
+          <form className="rulebook-form" onSubmit={applyRulebook}>
+            <div className="rulebook-fields">
+              {RULE_FIELDS.map((field) => (
+                <label className="rulebook-field" key={field.key}>
+                  <span>
+                    <strong>{field.label}</strong>
+                    <small>{field.description}</small>
+                  </span>
+                  <span className="rule-value-control">
+                    <Input
+                      type="number"
+                      min={field.min}
+                      max={field.max}
+                      step={field.step}
+                      value={draftPolicy[field.key]}
+                      onChange={(event) =>
+                        setDraftPolicy((current) => ({
+                          ...current,
+                          [field.key]: Number(event.target.value),
+                        }))
+                      }
+                      required
+                      aria-label={field.label}
+                    />
+                    <em>{field.suffix}</em>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <div className="rulebook-actions">
+              <button className="rulebook-reset" type="button" onClick={restoreDefaultRules}>
+                Restore defaults
+              </button>
+              <button className="rulebook-save" type="submit">
+                Save and re-check <ChevronRight size={16} />
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

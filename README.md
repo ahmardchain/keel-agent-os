@@ -41,9 +41,13 @@ The interface includes three one-click, deterministic cases that expose the beha
 
 Judge fixtures are explicitly labeled. **Live check** remains separate and uses public Binance market evidence with the demo account.
 
+### User-owned rulebook
+
+Live checks use limits the trader can edit in the interface: maximum exposure per asset, daily loss stop, consecutive-loss cooldown, five-minute velocity, and maximum clean spread. The rulebook is kept only in device-local storage and every change forces a fresh evaluation and receipt. Judge Mode stays locked to the documented defaults so its results remain reproducible.
+
 ### Keel Risk Receipt
 
-Every completed check can issue a downloadable `keel-risk-receipt-v1` JSON artifact. It contains the intent, evidence provenance and timestamps, account fixture, complete policy snapshot, deterministic verdict, safe size, execution state, and a canonical SHA-256 digest. Editing any protected field invalidates the fingerprint.
+Every completed check can issue a downloadable `keel-risk-receipt-v1` JSON artifact. It contains the intent, evidence provenance and timestamps, account fixture, complete policy snapshot, deterministic verdict, safe size, execution state, and a canonical SHA-256 digest. Editing any protected field invalidates the fingerprint. The interface can load a downloaded receipt and independently recompute its fingerprint, producing an explicit verified or failed state.
 
 ## Architecture
 

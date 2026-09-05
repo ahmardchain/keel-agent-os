@@ -3,12 +3,13 @@
 ## 60-second judge demo sequence
 
 1. **0–6s — Problem:** “Most trading agents optimize entry. Keel governs permission before money moves.”
-2. **6–16s — Agent OS proof:** In the connected Agent OS conversation, request read-only Binance market and Agentic account evidence. Show the tool result; do not expose the MCP endpoint or credentials.
-3. **16–28s — Live check:** Open Keel with: “Buy $1,200 of SOL because it is pumping.” Run the check and show the live public-market badge, policy evidence, and `RESIZE` result.
-4. **28–43s — Behavioral Judge Mode:** Click `Planned entry`, `FOMO sizing`, and `Revenge trade`. Let the decisions change from `APPROVE` to `RESIZE` to `BLOCK`.
-5. **43–52s — Verifiable artifact:** Return to the FOMO case, download the Keel Risk Receipt, and briefly show the evidence mode, policy snapshot, `sent: false`, and SHA-256 digest.
-6. **52–57s — Human gate:** Prepare the $340 safe draft. Show that a fresh Binance confirmation is still required and that the website cannot send an order.
-7. **57–60s — Close:** “Keel turns emotional trading intent into a policy-controlled decision for Binance Agent OS.”
+2. **6–14s — Agent OS proof:** In the connected Agent OS conversation, request read-only Binance market and Agentic account evidence. Show the tool result; do not expose the MCP endpoint or credentials.
+3. **14–22s — User-owned policy:** Open `Edit`, change one limit, and save. Show that Keel immediately re-runs the live check under the new rulebook.
+4. **22–33s — Live check:** Use: “Buy $1,200 of SOL because it is pumping.” Show the live public-market badge, policy evidence, and `RESIZE` result.
+5. **33–46s — Behavioral Judge Mode:** Click `Planned entry`, `FOMO sizing`, and `Revenge trade`. Let the decisions change from `APPROVE` to `RESIZE` to `BLOCK`.
+6. **46–55s — Verifiable artifact:** Return to FOMO, download the receipt, then load it with `Verify JSON`. Show the verified state, policy snapshot, `sent: false`, and SHA-256 digest.
+7. **55–58s — Human gate:** Prepare the $340 safe draft. Show that a fresh Binance confirmation is still required and that the website cannot send an order.
+8. **58–60s — Close:** “Keel turns emotional trading intent into a policy-controlled decision for Binance Agent OS.”
 
 ## Draft X post
 
@@ -27,6 +28,7 @@ Replace both bracketed links before posting.
 - [ ] Use the Agent OS skill with a connected Binance Agentic account in the recorded demo.
 - [ ] Show at least one live read and one confirmation-gated order draft.
 - [ ] Show all three Judge Mode cases and download one risk receipt.
+- [ ] Edit one personal rule and verify the downloaded receipt in the interface.
 - [ ] Keep the real Agent OS conversation visible long enough for judges to verify the Binance tool call.
 - [ ] Keep real funds minimal; Spot only.
 - [ ] Publish this repository publicly and replace the GitHub placeholder above.
