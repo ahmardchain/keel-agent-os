@@ -1,19 +1,20 @@
 # Keel submission kit
 
-## 45-second demo sequence
+## 60-second judge demo sequence
 
-1. **0–5s — Problem:** “Most trading agents help you enter trades. Keel knows when you should not.”
-2. **5–12s — Intent:** Enter: “Buy $1,200 of SOL because it is pumping.”
-3. **12–24s — Evidence:** Run the check. Point out the live Binance price, 5-minute velocity, spread, account exposure, and daily-loss state.
-4. **24–34s — Decision:** Show `RESIZE`: $1,200 requested → $340 policy size. Open the evidence rows.
-5. **34–41s — Human gate:** Prepare the order and show that Keel stops at Binance confirmation; no order is sent by the website.
-6. **41–45s — Close:** “Keel is the personal risk governor for Binance Agent OS.”
+1. **0–6s — Problem:** “Most trading agents optimize entry. Keel governs permission before money moves.”
+2. **6–16s — Agent OS proof:** In the connected Agent OS conversation, request read-only Binance market and Agentic account evidence. Show the tool result; do not expose the MCP endpoint or credentials.
+3. **16–28s — Live check:** Open Keel with: “Buy $1,200 of SOL because it is pumping.” Run the check and show the live public-market badge, policy evidence, and `RESIZE` result.
+4. **28–43s — Behavioral Judge Mode:** Click `Planned entry`, `FOMO sizing`, and `Revenge trade`. Let the decisions change from `APPROVE` to `RESIZE` to `BLOCK`.
+5. **43–52s — Verifiable artifact:** Return to the FOMO case, download the Keel Risk Receipt, and briefly show the evidence mode, policy snapshot, `sent: false`, and SHA-256 digest.
+6. **52–57s — Human gate:** Prepare the $340 safe draft. Show that a fresh Binance confirmation is still required and that the website cannot send an order.
+7. **57–60s — Close:** “Keel turns emotional trading intent into a policy-controlled decision for Binance Agent OS.”
 
 ## Draft X post
 
 > Most AI trading agents tell you what to buy. Keel makes sure the trade still fits your rules.
 >
-> Built for the @Binance Agent OS Mini Hackathon, Track A: live market evidence, account-aware risk checks, deterministic APPROVE / RESIZE / PAUSE / BLOCK decisions, and a human gate before execution.
+> Built for the @Binance Agent OS Mini Hackathon, Track A: live market evidence, behavioral Judge Mode, deterministic APPROVE / RESIZE / PAUSE / BLOCK decisions, tamper-evident risk receipts, and a human gate before execution.
 >
 > Demo: [video]
 > GitHub: [repository]
@@ -25,6 +26,8 @@ Replace both bracketed links before posting.
 
 - [ ] Use the Agent OS skill with a connected Binance Agentic account in the recorded demo.
 - [ ] Show at least one live read and one confirmation-gated order draft.
+- [ ] Show all three Judge Mode cases and download one risk receipt.
+- [ ] Keep the real Agent OS conversation visible long enough for judges to verify the Binance tool call.
 - [ ] Keep real funds minimal; Spot only.
 - [ ] Publish this repository publicly and replace the GitHub placeholder above.
 - [ ] Record a clear screen demo and replace the video placeholder above.

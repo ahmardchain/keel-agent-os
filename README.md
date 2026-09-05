@@ -2,6 +2,8 @@
 
 **A personal risk governor for Binance Agent OS.**
 
+[Live demo](https://keel-agent-os.ahmardchain.chatgpt.site) · [Agent skill](agent/keel/SKILL.md) · [Deterministic evaluator](agent/keel/scripts/evaluate-risk.mjs)
+
 Keel sits between a trader's intent and the order button. It reads current Binance market and account evidence, applies the trader's own loss, concentration, cooldown, velocity, and liquidity rules, then returns one deterministic decision:
 
 - `APPROVE` — the trade fits the active rulebook;
@@ -11,11 +13,37 @@ Keel sits between a trader's intent and the order button. It reads current Binan
 
 Keel is not a signal bot. It does not predict which coin will rise. It helps a user follow the rules they already chose when emotion is highest.
 
+## Product thesis
+
+Most trading agents optimize entry. Keel governs permission. The language model can understand the trader's intent and collect evidence, but it cannot override the rulebook or silently increase the deterministic policy size.
+
+| A signal bot asks | Keel asks |
+| --- | --- |
+| “What should I buy?” | “Does this trade fit the rules I adopted?” |
+| “Can I enter faster?” | “Is the evidence fresh and the size safe?” |
+| “Can the agent execute?” | “What still requires my confirmation?” |
+
 ## Demo
 
 > “Buy $1,200 of SOL because it is pumping.”
 
 The included fixture has $4,860.20 equity, $389 of existing SOL exposure, and a 15% maximum per asset. Keel reads live public Binance market data, calculates a $729.03 SOL cap, and resizes the proposed order to $340. The web demo can prepare this safe draft, but it never transmits an order.
+
+### Judge Mode
+
+The interface includes three one-click, deterministic cases that expose the behavioral layer without depending on market timing:
+
+| Case | Trader state | Expected decision |
+| --- | --- | --- |
+| 01 | Planned BTC entry within the rulebook | `APPROVE` |
+| 02 | Oversized SOL request driven by FOMO | `RESIZE` to $340 |
+| 03 | Revenge trade after the daily stop | `BLOCK` |
+
+Judge fixtures are explicitly labeled. **Live check** remains separate and uses public Binance market evidence with the demo account.
+
+### Keel Risk Receipt
+
+Every completed check can issue a downloadable `keel-risk-receipt-v1` JSON artifact. It contains the intent, evidence provenance and timestamps, account fixture, complete policy snapshot, deterministic verdict, safe size, execution state, and a canonical SHA-256 digest. Editing any protected field invalidates the fingerprint.
 
 ## Architecture
 
@@ -55,6 +83,12 @@ npm run build
 node --test tests/keel-risk.test.mjs
 ```
 
+The evaluator's JSON output includes the same tamper-evident receipt envelope:
+
+```bash
+node agent/keel/scripts/evaluate-risk.mjs --demo
+```
+
 ## Use the Agent OS skill
 
 1. Connect the official [Binance MCP Server](https://developers.binance.com/en/docs/agent-native/mcp-server/agentic) through your supported AI client. Start with Market Data and Account scope; add Trade only when you are ready to test confirmed execution.
@@ -83,6 +117,7 @@ node agent/keel/scripts/evaluate-risk.mjs --demo
 - Missing or stale evidence fails closed.
 - A `RESIZE` decision can only prepare the approved size, never the requested size.
 - Every order requires a fresh, exact summary and Binance confirmation.
+- Every completed evaluation can be exported with a SHA-256 integrity fingerprint.
 - No credentials are requested, logged, or stored by Keel.
 - The web experience is a simulation and cannot execute trades.
 
@@ -95,6 +130,7 @@ agent/keel/SKILL.md                  Agent workflow and safety boundary
 agent/keel/scripts/evaluate-risk.mjs Deterministic policy engine
 app/api/market/route.ts              Public Binance market adapter
 app/page.tsx                         Interactive decision interface
+lib/keel.ts                          Browser policy and receipt engine
 tests/keel-risk.test.mjs             Core policy invariants
 ```
 

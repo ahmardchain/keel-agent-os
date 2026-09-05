@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 
 export const DEFAULT_POLICY = Object.freeze({
@@ -205,6 +206,74 @@ export function evaluateRisk(rawInput) {
   };
 }
 
+function canonicalize(value) {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonicalize).join(",")}]`;
+
+  return `{${Object.keys(value)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonicalize(value[key])}`)
+    .join(",")}}`;
+}
+
+function digestPayload(payload) {
+  return createHash("sha256").update(canonicalize(payload)).digest("hex");
+}
+
+export function createRiskReceipt(rawInput, evaluation = evaluateRisk(rawInput), metadata = {}) {
+  const normalized = normalize(rawInput);
+  const evaluatedAt = metadata.evaluatedAt ?? evaluation.evaluatedAt;
+  const payload = {
+    evaluatedAt,
+    evidenceMode: metadata.evidenceMode ?? "provided-agent-evidence",
+    intent: normalized.intent,
+    account: normalized.account,
+    market: {
+      ...normalized.market,
+      observedAt: metadata.observedAt ?? evaluatedAt,
+    },
+    decision: {
+      version: evaluation.version,
+      decision: evaluation.decision,
+      primaryCode: evaluation.primaryCode,
+      requestedQuoteAmount: evaluation.requestedQuoteAmount,
+      approvedQuoteAmount: evaluation.approvedQuoteAmount,
+      estimatedQuantity: evaluation.estimatedQuantity,
+      symbol: evaluation.symbol,
+      side: evaluation.side,
+      execution: evaluation.execution,
+      metrics: evaluation.metrics,
+      reasons: evaluation.reasons,
+    },
+    policy: normalized.policy,
+  };
+  const digest = digestPayload(payload);
+
+  return {
+    schema: "keel-risk-receipt-v1",
+    receiptId: `keel_${digest.slice(0, 16)}`,
+    payload,
+    integrity: {
+      algorithm: "SHA-256",
+      canonicalization: "sorted-json-v1",
+      digest,
+    },
+  };
+}
+
+export function verifyRiskReceipt(receipt) {
+  if (
+    !receipt ||
+    receipt.schema !== "keel-risk-receipt-v1" ||
+    receipt.integrity?.algorithm !== "SHA-256" ||
+    typeof receipt.integrity?.digest !== "string"
+  ) {
+    return false;
+  }
+
+  return digestPayload(receipt.payload) === receipt.integrity.digest;
+}
+
 async function readStdin() {
   let body = "";
   for await (const chunk of process.stdin) body += chunk;
@@ -216,7 +285,9 @@ async function main() {
     const rawInput = process.argv.includes("--demo")
       ? DEMO_INPUT
       : JSON.parse(await readStdin());
-    process.stdout.write(`${JSON.stringify(evaluateRisk(rawInput), null, 2)}\n`);
+    const evaluation = evaluateRisk(rawInput);
+    const receipt = createRiskReceipt(rawInput, evaluation);
+    process.stdout.write(`${JSON.stringify({ ...evaluation, receipt }, null, 2)}\n`);
   } catch (error) {
     process.stderr.write(
       `${JSON.stringify({ error: "INVALID_EVIDENCE", detail: error instanceof Error ? error.message : String(error) })}\n`,

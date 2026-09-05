@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { evaluateRisk } from "../agent/keel/scripts/evaluate-risk.mjs";
+import {
+  createRiskReceipt,
+  evaluateRisk,
+  verifyRiskReceipt,
+} from "../agent/keel/scripts/evaluate-risk.mjs";
 
 function fixture(overrides = {}) {
   return {
@@ -63,4 +67,32 @@ test("approves a small trade inside every limit", () => {
   assert.equal(result.decision, "APPROVE");
   assert.equal(result.approvedQuoteAmount, 200);
   assert.equal(result.execution.requiresFreshConfirmation, true);
+});
+
+test("issues a reproducible SHA-256 risk receipt", () => {
+  const input = fixture();
+  const evaluation = evaluateRisk(input);
+  const metadata = {
+    evaluatedAt: "2026-09-05T15:30:00.000Z",
+    observedAt: "2026-09-05T15:29:58.000Z",
+    evidenceMode: "deterministic-judge-fixture",
+  };
+  const first = createRiskReceipt(input, evaluation, metadata);
+  const second = createRiskReceipt(input, evaluation, metadata);
+
+  assert.equal(first.receiptId, second.receiptId);
+  assert.equal(first.integrity.digest, second.integrity.digest);
+  assert.equal(first.integrity.digest.length, 64);
+  assert.equal(verifyRiskReceipt(first), true);
+});
+
+test("detects a tampered risk receipt", () => {
+  const input = fixture();
+  const receipt = createRiskReceipt(input, evaluateRisk(input), {
+    evaluatedAt: "2026-09-05T15:30:00.000Z",
+  });
+  const tampered = structuredClone(receipt);
+  tampered.payload.decision.approvedQuoteAmount = 1200;
+
+  assert.equal(verifyRiskReceipt(tampered), false);
 });

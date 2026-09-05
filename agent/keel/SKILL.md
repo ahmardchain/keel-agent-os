@@ -15,8 +15,9 @@ Act as a pre-trade risk governor. Evaluate the user's proposed Binance Spot orde
    - Agentic account equity, available balance, and current symbol exposure;
    - today's realized PnL and consecutive losing trades when the granted scope exposes them.
 3. Do not invent missing account or market fields. If live evidence is unavailable or older than 60 seconds, return `BLOCK — EVIDENCE_UNAVAILABLE`. A clearly labeled demo may use an explicit fixture, but it must never execute.
-4. Normalize the evidence and proposed order to the JSON schema accepted by `scripts/evaluate-risk.mjs`. Run the script by piping JSON over stdin. Treat its JSON output as the sizing authority.
-5. Present `APPROVE`, `RESIZE`, `PAUSE`, or `BLOCK`, followed by the requested size, policy size, and each reason. Do not describe a blocked or paused order as executable.
+4. Normalize the evidence and proposed order to the JSON schema accepted by `scripts/evaluate-risk.mjs`. Run the script exactly once by piping JSON over stdin. Treat its JSON output as the sizing authority.
+5. Preserve the returned `keel-risk-receipt-v1` envelope. It binds the intent, normalized evidence, policy snapshot, decision, and execution state to a canonical SHA-256 digest. Call it tamper-evident, not signed; it does not prove identity.
+6. Present `APPROVE`, `RESIZE`, `PAUSE`, or `BLOCK`, followed by the requested size, policy size, each reason, receipt ID, and evidence mode. Do not describe a blocked or paused order as executable.
 
 If the user has not supplied a rulebook, offer a read-only dry run using the script defaults. Do not execute from default rules until the user explicitly adopts them.
 
@@ -29,7 +30,7 @@ If the user has not supplied a rulebook, offer a read-only dry run using the scr
 - Restate the exact symbol, side, type, quantity/notional, limit price, and estimated fee.
 - Wait for the Binance MCP confirmation control. When using `binance-cli`, require the user to type the literal word `CONFIRM` after the exact final summary. An earlier or ambiguous approval is invalid.
 - Send at most one order after confirmation. Do not retry, alter, cancel, transfer, or place a replacement without a new summary and confirmation.
-- Verify the resulting order status read-only and return a receipt containing the decision, policy snapshot, evidence timestamps, confirmation time, and Binance order identifier.
+- Verify the resulting order status read-only. Return a separate execution record containing the risk receipt ID and digest, confirmation time, Binance order identifier, and observed order status. Do not mutate the original risk receipt after hashing it.
 
 ## Safety boundary
 
@@ -37,6 +38,7 @@ If the user has not supplied a rulebook, offer a read-only dry run using the scr
 - Use the least Binance scope required. Perform reads before requesting Trade scope.
 - Never request, reveal, or store API keys, secrets, cookies, recovery phrases, or the Agentic MCP endpoint.
 - A prepared order is not an executed order. Say which state applies.
+- Never claim the SHA-256 receipt proves Binance execution. It proves only that the exported risk payload has not changed.
 - Keel enforces user limits; it does not predict prices or provide financial advice.
 
 ## Evaluator input

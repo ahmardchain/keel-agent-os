@@ -337,8 +337,9 @@ a:focus-visible {
 
 .run-button,
 .prepare-button,
+.receipt-button,
 .reset-button,
-.prompt-row button {
+.scenario-toolbar button {
   border: 0;
   cursor: pointer;
 }
@@ -370,42 +371,135 @@ a:focus-visible {
   opacity: 0.48;
 }
 
-.prompt-row {
-  display: flex;
+.scenario-toolbar {
+  display: grid;
+  grid-template-columns: 142px minmax(0, 1fr);
   gap: 8px;
   margin-top: 10px;
-  overflow-x: auto;
-  scrollbar-width: none;
 }
 
-.prompt-row::-webkit-scrollbar {
-  display: none;
+.live-check-button,
+.scenario-set {
+  min-height: 54px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #0e1114;
 }
 
-.prompt-row button {
+.live-check-button {
   display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 12px;
+  color: var(--muted);
+  text-align: left;
+  transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+}
+
+.live-check-button svg {
   flex: 0 0 auto;
-  gap: 8px;
-  padding: 6px 9px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
+  color: var(--positive);
+}
+
+.live-check-button span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.live-check-button strong,
+.scenario-button strong {
+  color: #d8dbd8;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.live-check-button small,
+.scenario-button small {
   color: var(--dim);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.live-check-button:hover,
+.live-check-button.active {
+  border-color: #315f49;
+  background: #111915;
+}
+
+.scenario-set {
+  display: grid;
+  grid-template-columns: 92px repeat(3, minmax(116px, 1fr));
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.scenario-set-label {
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  color: var(--dim);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.scenario-button {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  align-content: center;
+  padding: 8px 11px;
+  border-left: 1px solid var(--line) !important;
+  background: transparent;
+  color: var(--dim);
   text-align: left;
-  transition: color 150ms ease, border-color 150ms ease;
+  transition: background 150ms ease, color 150ms ease;
 }
 
-.prompt-row button span {
-  color: var(--muted);
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-  font-size: 10px;
+.scenario-button > span {
+  grid-row: 1 / 3;
+  align-self: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
 }
 
-.prompt-row button:hover {
-  border-color: var(--line);
+.scenario-button small {
+  margin-top: 2px;
+}
+
+.scenario-approve small {
+  color: var(--positive);
+}
+
+.scenario-resize small {
   color: var(--signal);
+}
+
+.scenario-block small {
+  color: var(--negative);
+}
+
+.scenario-button:hover,
+.scenario-button.active {
+  background: #171b1e;
+}
+
+.scenario-button.active {
+  box-shadow: inset 0 -2px 0 var(--signal);
+}
+
+.scenario-approve.active {
+  box-shadow: inset 0 -2px 0 var(--positive);
+}
+
+.scenario-block.active {
+  box-shadow: inset 0 -2px 0 var(--negative);
 }
 
 .market-strip {
@@ -758,6 +852,90 @@ a:focus-visible {
   background: #282316;
 }
 
+.receipt-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 68px;
+  padding: 11px clamp(20px, 2.6vw, 30px);
+  border-top: 1px solid var(--line);
+  background: #0d1012;
+}
+
+.receipt-proof,
+.receipt-proof > span:last-child,
+.receipt-button {
+  display: flex;
+  align-items: center;
+}
+
+.receipt-proof {
+  min-width: 0;
+  gap: 11px;
+}
+
+.receipt-proof > span:last-child {
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.receipt-icon {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #3f4d44;
+  border-radius: 7px;
+  background: #121a16;
+  color: var(--positive);
+}
+
+.receipt-proof strong {
+  color: #dfe2df;
+  font-size: 11px;
+  font-weight: 680;
+  letter-spacing: 0.02em;
+}
+
+.receipt-proof small {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--dim);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.receipt-button {
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  flex: 0 0 auto;
+  padding: 0 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface-raised);
+  color: #cdd1ce;
+  font-size: 10px;
+  font-weight: 650;
+  transition: border-color 150ms ease, color 150ms ease;
+}
+
+.receipt-button:hover:not(:disabled) {
+  border-color: #59636b;
+  color: var(--text);
+}
+
+.receipt-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .activity-footer {
   display: grid;
   grid-template-columns: minmax(210px, 1fr) auto auto;
@@ -939,6 +1117,24 @@ a:focus-visible {
     width: 100%;
   }
 
+  .scenario-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .live-check-button {
+    min-height: 48px;
+  }
+
+  .scenario-set {
+    grid-template-columns: 78px repeat(3, 134px);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .scenario-set::-webkit-scrollbar {
+    display: none;
+  }
+
   .market-strip {
     grid-template-columns: 1fr 1fr 1fr;
     gap: 16px 4px;
@@ -975,6 +1171,17 @@ a:focus-visible {
 
   .evidence-row strong {
     grid-column: 2;
+  }
+
+  .receipt-strip {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+    padding-block: 15px;
+  }
+
+  .receipt-button {
+    width: 100%;
   }
 
   .activity-footer {

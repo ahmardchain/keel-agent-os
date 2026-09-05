@@ -8,43 +8,28 @@ import {
   ChevronRight,
   CircleDollarSign,
   Clock3,
+  Download,
+  FileCheck2,
   LockKeyhole,
+  Radio,
   RotateCcw,
   ShieldCheck,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-type MarketSnapshot = {
-  symbol: string;
-  lastPrice: number;
-  priceChangePercent: number;
-  fiveMinuteMove: number;
-  spreadBps: number;
-  bidDepthOnePercent: number;
-  askDepthOnePercent: number;
-  highPrice: number;
-  lowPrice: number;
-  closes: number[];
-  source: "live" | "fallback";
-  timestamp: string;
-};
+import {
+  createRiskReceipt,
+  DEFAULT_POLICY,
+  evaluateRisk,
+  extractIntent,
+  type AccountSnapshot,
+  type Analysis,
+  type Decision,
+  type MarketSnapshot,
+  type RiskReceipt,
+} from "@/lib/keel";
 
-type Decision = "APPROVE" | "RESIZE" | "PAUSE" | "BLOCK";
-
-type Analysis = {
-  decision: Decision;
-  requested: number;
-  approved: number;
-  symbol: string;
-  quantity: number;
-  reasons: Array<{
-    label: string;
-    detail: string;
-    tone: "pass" | "warn" | "stop";
-  }>;
-};
-
-const DEMO_ACCOUNT = {
+const DEMO_ACCOUNT: AccountSnapshot = {
   equity: 4860.2,
   available: 1610.42,
   dayPnl: -2.1,
@@ -54,28 +39,109 @@ const DEMO_ACCOUNT = {
     BTCUSDT: 580,
     ETHUSDT: 250,
     BNBUSDT: 120,
-  } as Record<string, number>,
+  },
 };
 
-const FALLBACK_MARKET: MarketSnapshot = {
-  symbol: "SOLUSDT",
-  lastPrice: 143.18,
-  priceChangePercent: 2.84,
-  fiveMinuteMove: 0.62,
-  spreadBps: 1.7,
-  bidDepthOnePercent: 2840000,
-  askDepthOnePercent: 2510000,
-  highPrice: 146.92,
-  lowPrice: 137.61,
-  closes: [139.2, 139.8, 139.4, 140.6, 140.1, 141.5, 141.2, 142.4, 141.9, 143.18],
-  source: "fallback",
-  timestamp: new Date().toISOString(),
+const FALLBACK_PRICES: Record<string, number> = {
+  BTCUSDT: 111240,
+  ETHUSDT: 4320,
+  BNBUSDT: 875,
+  SOLUSDT: 143.18,
+  XRPUSDT: 2.84,
+  DOGEUSDT: 0.24,
+  ADAUSDT: 0.91,
 };
 
-const SAMPLE_PROMPTS = [
-  "Buy $1,200 of SOL because it is pumping",
-  "Put 250 USDT into BTC",
-  "Can I add $600 of ETH?",
+const FIXTURE_TIMESTAMP = "2026-09-05T15:00:00.000Z";
+
+function fallbackMarket(symbol = "SOLUSDT", timestamp = FIXTURE_TIMESTAMP): MarketSnapshot {
+  const lastPrice = FALLBACK_PRICES[symbol] ?? FALLBACK_PRICES.SOLUSDT;
+  const factors = [0.972, 0.976, 0.974, 0.982, 0.979, 0.988, 0.986, 0.994, 0.991, 1];
+
+  return {
+    symbol,
+    lastPrice,
+    priceChangePercent: 2.84,
+    fiveMinuteMove: 0.62,
+    spreadBps: 1.7,
+    bidDepthOnePercent: 2840000,
+    askDepthOnePercent: 2510000,
+    highPrice: lastPrice * 1.026,
+    lowPrice: lastPrice * 0.961,
+    closes: factors.map((factor) => lastPrice * factor),
+    source: "fallback",
+    timestamp,
+  };
+}
+
+const INITIAL_MARKET = fallbackMarket();
+
+type JudgeScenario = {
+  id: "planned" | "fomo" | "revenge";
+  number: string;
+  cue: string;
+  expected: "APPROVE" | "RESIZE" | "BLOCK";
+  prompt: string;
+  account: AccountSnapshot;
+  market: MarketSnapshot;
+};
+
+const JUDGE_SCENARIOS: JudgeScenario[] = [
+  {
+    id: "planned",
+    number: "01",
+    cue: "Planned entry",
+    expected: "APPROVE",
+    prompt: "Buy 180 USDT of BTC within my plan",
+    account: {
+      ...DEMO_ACCOUNT,
+      dayPnl: -0.4,
+      lossStreak: 0,
+      existingExposure: { ...DEMO_ACCOUNT.existingExposure, BTCUSDT: 100 },
+    },
+    market: {
+      ...fallbackMarket("BTCUSDT"),
+      priceChangePercent: 0.84,
+      fiveMinuteMove: 0.18,
+      spreadBps: 1.2,
+      bidDepthOnePercent: 8420000,
+      askDepthOnePercent: 7980000,
+      source: "judge",
+    },
+  },
+  {
+    id: "fomo",
+    number: "02",
+    cue: "FOMO sizing",
+    expected: "RESIZE",
+    prompt: "Buy $1,200 of SOL because it is pumping",
+    account: DEMO_ACCOUNT,
+    market: {
+      ...fallbackMarket("SOLUSDT"),
+      source: "judge",
+    },
+  },
+  {
+    id: "revenge",
+    number: "03",
+    cue: "Revenge trade",
+    expected: "BLOCK",
+    prompt: "Buy 250 USDT of ETH. I need to win back today's losses",
+    account: {
+      ...DEMO_ACCOUNT,
+      dayPnl: -3.2,
+      lossStreak: 3,
+    },
+    market: {
+      ...fallbackMarket("ETHUSDT"),
+      priceChangePercent: -1.18,
+      fiveMinuteMove: -0.31,
+      spreadBps: 2.4,
+      bidDepthOnePercent: 5160000,
+      askDepthOnePercent: 4940000,
+      source: "judge",
+    },
+  },
 ];
 
 function money(value: number, digits = 2) {
@@ -84,73 +150,6 @@ function money(value: number, digits = 2) {
     currency: "USD",
     maximumFractionDigits: digits,
   }).format(value);
-}
-
-function compactMoney(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value);
-}
-
-function extractIntent(input: string) {
-  const upper = input.toUpperCase();
-  const asset = upper.match(/\b(BTC|ETH|BNB|SOL|XRP|DOGE|ADA)(?:USDT)?\b/)?.[1] ?? "SOL";
-  const amountMatch = input.match(/\$\s*([\d,.]+)|([\d,.]+)\s*(?:USDT|USD)\b/i);
-  const rawAmount = amountMatch?.[1] ?? amountMatch?.[2] ?? "1200";
-  const amount = Number(rawAmount.replaceAll(",", ""));
-  return {
-    symbol: `${asset}USDT`,
-    amount: Number.isFinite(amount) && amount > 0 ? amount : 1200,
-  };
-}
-
-function createAnalysis(input: string, market: MarketSnapshot): Analysis {
-  const { symbol, amount } = extractIntent(input);
-  const positionLimit = DEMO_ACCOUNT.equity * 0.15;
-  const currentExposure = DEMO_ACCOUNT.existingExposure[symbol] ?? 0;
-  const remainingCapacity = Math.max(0, positionLimit - currentExposure);
-  const sizeAfterLiquidity = market.spreadBps > 12 ? remainingCapacity * 0.5 : remainingCapacity;
-  const approved = Math.max(0, Math.floor(Math.min(amount, sizeAfterLiquidity) / 10) * 10);
-
-  let decision: Decision = "APPROVE";
-  if (DEMO_ACCOUNT.dayPnl <= -3 || approved < 10) decision = "BLOCK";
-  else if (Math.abs(market.fiveMinuteMove) >= 4) decision = "PAUSE";
-  else if (approved < amount) decision = "RESIZE";
-
-  const reasons: Analysis["reasons"] = [
-    {
-      label: "Daily loss",
-      detail: `${DEMO_ACCOUNT.dayPnl.toFixed(1)}% of −3.0% limit`,
-      tone: DEMO_ACCOUNT.dayPnl <= -3 ? "stop" : "pass",
-    },
-    {
-      label: "Position concentration",
-      detail: `${money(currentExposure, 0)} already in ${symbol.replace("USDT", "")} · 15% cap`,
-      tone: approved < amount ? "warn" : "pass",
-    },
-    {
-      label: "Market velocity",
-      detail: `${market.fiveMinuteMove >= 0 ? "+" : ""}${market.fiveMinuteMove.toFixed(2)}% over 5m`,
-      tone: Math.abs(market.fiveMinuteMove) >= 4 ? "stop" : "pass",
-    },
-    {
-      label: "Execution quality",
-      detail: `${market.spreadBps.toFixed(1)} bps spread · ${compactMoney(market.bidDepthOnePercent)} bid depth`,
-      tone: market.spreadBps > 12 ? "warn" : "pass",
-    },
-  ];
-
-  return {
-    decision,
-    requested: amount,
-    approved,
-    symbol,
-    quantity: market.lastPrice > 0 ? approved / market.lastPrice : 0,
-    reasons,
-  };
 }
 
 function Sparkline({ values }: { values: number[] }) {
@@ -180,13 +179,17 @@ function Sparkline({ values }: { values: number[] }) {
 }
 
 export default function Home() {
-  const [intent, setIntent] = useState(SAMPLE_PROMPTS[0]);
-  const [market, setMarket] = useState<MarketSnapshot>(FALLBACK_MARKET);
+  const [intent, setIntent] = useState(JUDGE_SCENARIOS[1].prompt);
+  const [account, setAccount] = useState<AccountSnapshot>(DEMO_ACCOUNT);
+  const [market, setMarket] = useState<MarketSnapshot>(INITIAL_MARKET);
   const [analysis, setAnalysis] = useState<Analysis>(() =>
-    createAnalysis(SAMPLE_PROMPTS[0], FALLBACK_MARKET),
+    evaluateRisk(JUDGE_SCENARIOS[1].prompt, DEMO_ACCOUNT, INITIAL_MARKET),
   );
+  const [activeScenarioId, setActiveScenarioId] = useState<JudgeScenario["id"] | null>(null);
+  const [receipt, setReceipt] = useState<RiskReceipt | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "prepared">("idle");
-  const [notice, setNotice] = useState("Simulation only · no order has been sent");
+  const [notice, setNotice] = useState("Collecting live Binance market evidence");
+  const receiptSequence = useRef(0);
 
   const fetchMarket = useCallback(async (symbol: string) => {
     try {
@@ -196,44 +199,162 @@ export default function Home() {
       if (!response.ok) throw new Error("Market request failed");
       return (await response.json()) as MarketSnapshot;
     } catch {
-      return { ...FALLBACK_MARKET, symbol, timestamp: new Date().toISOString() };
+      return fallbackMarket(symbol, new Date().toISOString());
     }
   }, []);
 
+  async function commitCheck(
+    nextIntent: string,
+    nextAccount: AccountSnapshot,
+    nextMarket: MarketSnapshot,
+    nextNotice: string,
+    sequence: number,
+  ) {
+    if (sequence !== receiptSequence.current) return;
+    const nextAnalysis = evaluateRisk(nextIntent, nextAccount, nextMarket);
+
+    setAccount(nextAccount);
+    setMarket(nextMarket);
+    setAnalysis(nextAnalysis);
+    setStatus("ready");
+    setNotice(nextNotice);
+    setReceipt(null);
+
+    const nextReceipt = await createRiskReceipt({
+      rawIntent: nextIntent,
+      account: nextAccount,
+      market: nextMarket,
+      analysis: nextAnalysis,
+    });
+
+    if (sequence === receiptSequence.current) setReceipt(nextReceipt);
+  }
+
   useEffect(() => {
     let active = true;
-    fetchMarket("SOLUSDT").then((snapshot) => {
-      if (!active) return;
+    const sequence = ++receiptSequence.current;
+    fetchMarket("SOLUSDT").then(async (snapshot) => {
+      if (!active || sequence !== receiptSequence.current) return;
+      const nextAnalysis = evaluateRisk(JUDGE_SCENARIOS[1].prompt, DEMO_ACCOUNT, snapshot);
       setMarket(snapshot);
-      setAnalysis(createAnalysis(SAMPLE_PROMPTS[0], snapshot));
+      setAnalysis(nextAnalysis);
       setStatus("ready");
+      setNotice("Simulation only · no order has been sent");
+
+      const nextReceipt = await createRiskReceipt({
+        rawIntent: JUDGE_SCENARIOS[1].prompt,
+        account: DEMO_ACCOUNT,
+        market: snapshot,
+        analysis: nextAnalysis,
+      });
+      if (active && sequence === receiptSequence.current) setReceipt(nextReceipt);
     });
+
     return () => {
       active = false;
     };
   }, [fetchMarket]);
 
   async function runCheck() {
-    const parsed = extractIntent(intent);
+    const sequence = ++receiptSequence.current;
     setStatus("loading");
+    setReceipt(null);
     setNotice("Agent is collecting market and policy evidence");
+
+    const scenario = JUDGE_SCENARIOS.find((item) => item.id === activeScenarioId);
+    if (scenario) {
+      await commitCheck(
+        intent,
+        scenario.account,
+        { ...scenario.market, timestamp: new Date().toISOString() },
+        `${scenario.expected} reproduced from deterministic judge evidence`,
+        sequence,
+      );
+      return;
+    }
+
+    const parsed = extractIntent(intent);
     const snapshot = await fetchMarket(parsed.symbol);
-    setMarket(snapshot);
-    setAnalysis(createAnalysis(intent, snapshot));
-    setStatus("ready");
-    setNotice("Simulation only · no order has been sent");
+    await commitCheck(
+      intent,
+      DEMO_ACCOUNT,
+      snapshot,
+      "Simulation only · no order has been sent",
+      sequence,
+    );
+  }
+
+  async function selectLiveCheck() {
+    const sequence = ++receiptSequence.current;
+    setActiveScenarioId(null);
+    setStatus("loading");
+    setReceipt(null);
+    setNotice("Refreshing public Binance market evidence");
+    const parsed = extractIntent(intent);
+    const snapshot = await fetchMarket(parsed.symbol);
+    await commitCheck(
+      intent,
+      DEMO_ACCOUNT,
+      snapshot,
+      "Live check ready · demo account · no order sent",
+      sequence,
+    );
+  }
+
+  async function selectScenario(scenario: JudgeScenario) {
+    const sequence = ++receiptSequence.current;
+    setActiveScenarioId(scenario.id);
+    setIntent(scenario.prompt);
+    setStatus("loading");
+    setReceipt(null);
+    setNotice(`Loading judge case ${scenario.number}`);
+    await commitCheck(
+      scenario.prompt,
+      scenario.account,
+      { ...scenario.market, timestamp: new Date().toISOString() },
+      `${scenario.expected} reproduced from deterministic judge evidence`,
+      sequence,
+    );
   }
 
   function prepareOrder() {
     setStatus("prepared");
-    setNotice("Order prepared. Binance confirmation would be required before execution.");
+    setNotice("Order prepared. Fresh Binance confirmation is still required before execution.");
+  }
+
+  function handleIntentChange(value: string) {
+    receiptSequence.current += 1;
+    setIntent(value);
+    setActiveScenarioId(null);
+    setReceipt(null);
+    setStatus("idle");
+    setNotice("Intent changed · run a new live check");
   }
 
   function reset() {
-    setIntent(SAMPLE_PROMPTS[0]);
-    setAnalysis(createAnalysis(SAMPLE_PROMPTS[0], market));
+    receiptSequence.current += 1;
+    setIntent(JUDGE_SCENARIOS[1].prompt);
+    setActiveScenarioId(null);
+    setAccount(DEMO_ACCOUNT);
+    setAnalysis(evaluateRisk(JUDGE_SCENARIOS[1].prompt, DEMO_ACCOUNT, market));
     setStatus("ready");
-    setNotice("Simulation only · no order has been sent");
+    setReceipt(null);
+    setNotice("Reset complete · run a new check to issue a receipt");
+  }
+
+  function downloadReceipt() {
+    if (!receipt) return;
+    const blob = new Blob([`${JSON.stringify(receipt, null, 2)}\n`], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${receipt.receiptId}-${analysis.symbol.toLowerCase()}.json`;
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
   }
 
   const decisionCopy: Record<Decision, { title: string; text: string }> = {
@@ -247,20 +368,30 @@ export default function Home() {
     },
     PAUSE: {
       title: "Wait for the market to settle",
-      text: "Short-term velocity is outside the range you allow.",
+      text: "A temporary protection rule is active. Keel will not prepare the order.",
     },
     BLOCK: {
-      title: "Trading paused",
-      text: "Your daily protection rule has stopped new exposure.",
+      title: "Trading stopped by policy",
+      text: "Your hard daily protection rule has stopped new exposure.",
     },
   };
 
   const display = decisionCopy[analysis.decision];
-  const timestamp = new Date(market.timestamp).toLocaleTimeString([], {
+  const timestamp = new Date(market.timestamp).toLocaleTimeString("en-GB", {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
+    hour12: false,
+    timeZone: "UTC",
   });
+  const lossUsed = Math.max(0, -account.dayPnl);
+  const dailyLossBuffer = Math.max(
+    0,
+    Math.round(((DEFAULT_POLICY.maxDailyLossPercent - lossUsed) / DEFAULT_POLICY.maxDailyLossPercent) * 100),
+  );
+  const sourceLabel =
+    market.source === "live" ? "Live" : market.source === "judge" ? "Judge fixture" : "Fallback fixture";
+  const activeScenario = JUDGE_SCENARIOS.find((scenario) => scenario.id === activeScenarioId);
 
   return (
     <main className="app-shell">
@@ -273,7 +404,9 @@ export default function Home() {
           <span className="network-badge">
             <span className="status-dot" /> Binance Agent OS
           </span>
-          <span className="session-label">Agentic account · Demo</span>
+          <span className="session-label">
+            {activeScenario ? `Judge case ${activeScenario.number}` : "Public market · Demo account"}
+          </span>
         </div>
       </header>
 
@@ -281,22 +414,26 @@ export default function Home() {
         <aside className="risk-rail">
           <section className="account-block">
             <div className="eyebrow">Protected equity</div>
-            <div className="equity-value">{money(DEMO_ACCOUNT.equity)}</div>
+            <div className="equity-value">{money(account.equity)}</div>
             <div className="account-line">
               <span>Available</span>
-              <strong>{money(DEMO_ACCOUNT.available)}</strong>
+              <strong>{money(account.available)}</strong>
             </div>
           </section>
 
-          <section className="risk-meter" aria-label="Risk capacity">
+          <section className="risk-meter" aria-label="Daily loss buffer">
             <div className="section-heading">
-              <span>Risk capacity</span>
-              <strong>68%</strong>
+              <span>Daily loss buffer</span>
+              <strong>{dailyLossBuffer}%</strong>
             </div>
             <div className="meter-track">
-              <span style={{ width: "68%" }} />
+              <span style={{ width: `${dailyLossBuffer}%` }} />
             </div>
-            <p>One more loss triggers your cooldown.</p>
+            <p>
+              {account.dayPnl <= -DEFAULT_POLICY.maxDailyLossPercent
+                ? "Daily stop reached. New exposure is blocked."
+                : `${Math.max(0, DEFAULT_POLICY.maxDailyLossPercent - lossUsed).toFixed(1)}% remains before the hard stop.`}
+            </p>
           </section>
 
           <section className="rules-block">
@@ -326,7 +463,7 @@ export default function Home() {
 
           <div className="rail-footnote">
             <LockKeyhole size={15} />
-            <span>Keel can prepare an order. Only you can approve execution.</span>
+            <span>Keel can prepare a policy-sized order. Only you can confirm execution.</span>
           </div>
         </aside>
 
@@ -336,7 +473,7 @@ export default function Home() {
             <div className="command-box">
               <textarea
                 value={intent}
-                onChange={(event) => setIntent(event.target.value)}
+                onChange={(event) => handleIntentChange(event.target.value)}
                 aria-label="Describe the trade you want to make"
                 rows={2}
               />
@@ -350,12 +487,35 @@ export default function Home() {
                 <ChevronRight size={18} />
               </button>
             </div>
-            <div className="prompt-row" aria-label="Example trade prompts">
-              {SAMPLE_PROMPTS.map((prompt, index) => (
-                <button key={prompt} type="button" onClick={() => setIntent(prompt)}>
-                  0{index + 1} <span>{prompt}</span>
-                </button>
-              ))}
+
+            <div className="scenario-toolbar" aria-label="Evidence modes and judge scenarios">
+              <button
+                className={`live-check-button ${activeScenarioId === null ? "active" : ""}`}
+                type="button"
+                onClick={selectLiveCheck}
+                aria-pressed={activeScenarioId === null}
+              >
+                <Radio size={14} />
+                <span><strong>Live check</strong><small>Public market</small></span>
+              </button>
+              <div className="scenario-set">
+                <span className="scenario-set-label">Judge mode</span>
+                {JUDGE_SCENARIOS.map((scenario) => (
+                  <button
+                    key={scenario.id}
+                    className={`scenario-button scenario-${scenario.expected.toLowerCase()} ${
+                      activeScenarioId === scenario.id ? "active" : ""
+                    }`}
+                    type="button"
+                    onClick={() => selectScenario(scenario)}
+                    aria-pressed={activeScenarioId === scenario.id}
+                  >
+                    <span>{scenario.number}</span>
+                    <strong>{scenario.cue}</strong>
+                    <small>{scenario.expected}</small>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -384,7 +544,7 @@ export default function Home() {
             <Sparkline values={market.closes} />
             <div className="live-stamp">
               <span className={market.source === "live" ? "status-dot" : "status-dot muted-dot"} />
-              {market.source === "live" ? "Live" : "Fallback"} · {timestamp}
+              {sourceLabel} · {timestamp} UTC
             </div>
           </div>
 
@@ -392,7 +552,7 @@ export default function Home() {
             <div className="decision-header">
               <div>
                 <div className="decision-label">
-                  <span>{analysis.decision}</span> Risk decision
+                  <span>{analysis.decision}</span> Risk decision · {analysis.primaryCode.replaceAll("_", " ")}
                 </div>
                 <h1>{display.title}</h1>
                 <p>{display.text}</p>
@@ -408,11 +568,11 @@ export default function Home() {
               <section className="evidence-panel">
                 <div className="panel-title">
                   <span>Evidence</span>
-                  <span>04 checks</span>
+                  <span>05 checks</span>
                 </div>
                 <div className="evidence-list">
                   {analysis.reasons.map((reason) => (
-                    <div className="evidence-row" key={reason.label}>
+                    <div className="evidence-row" key={reason.code}>
                       <span className={`evidence-icon ${reason.tone}`}>
                         {reason.tone === "pass" ? <Check size={14} /> : <AlertTriangle size={14} />}
                       </span>
@@ -439,19 +599,41 @@ export default function Home() {
                   className="prepare-button"
                   type="button"
                   onClick={prepareOrder}
-                  disabled={
-                    analysis.decision === "BLOCK" ||
-                    analysis.decision === "PAUSE" ||
-                    status === "loading"
-                  }
+                  disabled={!analysis.execution.allowedToPrepare || status === "loading"}
                 >
                   {status === "prepared" ? (
                     <><Check size={17} /> Order prepared</>
-                  ) : (
+                  ) : analysis.execution.allowedToPrepare ? (
                     <>Prepare {money(analysis.approved, 0)} order <ArrowUpRight size={17} /></>
+                  ) : (
+                    <><LockKeyhole size={17} /> Order disabled by policy</>
                   )}
                 </button>
               </section>
+            </div>
+
+            <div className="receipt-strip">
+              <div className="receipt-proof">
+                <span className="receipt-icon"><FileCheck2 size={17} /></span>
+                <span>
+                  <strong>Keel Risk Receipt</strong>
+                  <small>
+                    {receipt
+                      ? `${receipt.receiptId} · SHA-256 ${receipt.integrity.digest.slice(0, 12)}…`
+                      : status === "loading"
+                        ? "Hashing evidence and policy snapshot…"
+                        : "Run the check to issue a fresh receipt"}
+                  </small>
+                </span>
+              </div>
+              <button
+                className="receipt-button"
+                type="button"
+                onClick={downloadReceipt}
+                disabled={!receipt}
+              >
+                <Download size={15} /> Download JSON
+              </button>
             </div>
           </div>
 
@@ -461,7 +643,7 @@ export default function Home() {
               <span>{notice}</span>
             </div>
             <div className="agent-trace" aria-label="Agent execution trace">
-              <span><Check size={13} /> Market data</span>
+              <span><Check size={13} /> Market evidence</span>
               <span><Check size={13} /> Account context</span>
               <span><Check size={13} /> Policy engine</span>
               <span className={status === "prepared" ? "trace-active" : ""}>
