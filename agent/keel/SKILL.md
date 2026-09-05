@@ -69,3 +69,5 @@ If the user has not supplied a rulebook, offer a read-only dry run using the scr
 ```
 
 Run `node scripts/evaluate-risk.mjs --demo` from this skill directory to inspect a safe fixture without Binance access.
+
+Verify an exported receipt by piping it to `node scripts/evaluate-risk.mjs --verify-receipt`. The command exits non-zero when the protected payload no longer matches its SHA-256 digest.

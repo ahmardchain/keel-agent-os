@@ -282,6 +282,16 @@ async function readStdin() {
 
 async function main() {
   try {
+    if (process.argv.includes("--verify-receipt")) {
+      const receipt = JSON.parse(await readStdin());
+      const valid = verifyRiskReceipt(receipt);
+      process.stdout.write(
+        `${JSON.stringify({ valid, receiptId: receipt?.receiptId ?? null }, null, 2)}\n`,
+      );
+      if (!valid) process.exitCode = 1;
+      return;
+    }
+
     const rawInput = process.argv.includes("--demo")
       ? DEMO_INPUT
       : JSON.parse(await readStdin());

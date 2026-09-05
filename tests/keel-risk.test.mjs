@@ -6,6 +6,7 @@ import {
   evaluateRisk,
   verifyRiskReceipt,
 } from "../agent/keel/scripts/evaluate-risk.mjs";
+import { runJudgeCases } from "../scripts/run-judge-cases.mjs";
 
 function fixture(overrides = {}) {
   return {
@@ -95,4 +96,16 @@ test("detects a tampered risk receipt", () => {
   tampered.payload.decision.approvedQuoteAmount = 1200;
 
   assert.equal(verifyRiskReceipt(tampered), false);
+});
+
+test("reproduces every documented judge case", () => {
+  const rows = runJudgeCases();
+  assert.deepEqual(
+    rows.map((row) => [row.number, row.evaluation.decision, row.passed]),
+    [
+      ["01", "APPROVE", true],
+      ["02", "RESIZE", true],
+      ["03", "BLOCK", true],
+    ],
+  );
 });

@@ -87,10 +87,22 @@ npm run build
 node --test tests/keel-risk.test.mjs
 ```
 
+Reproduce the exact three-case Judge Mode from the terminal:
+
+```bash
+npm run demo:judge
+```
+
 The evaluator's JSON output includes the same tamper-evident receipt envelope:
 
 ```bash
 node agent/keel/scripts/evaluate-risk.mjs --demo
+```
+
+Any downloaded receipt can also be verified without the web interface:
+
+```bash
+node agent/keel/scripts/evaluate-risk.mjs --verify-receipt < receipt.json
 ```
 
 ## Use the Agent OS skill

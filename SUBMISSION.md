@@ -30,6 +30,7 @@ Replace both bracketed links before posting.
 - [ ] Show all three Judge Mode cases and download one risk receipt.
 - [ ] Edit one personal rule and verify the downloaded receipt in the interface.
 - [ ] Keep the real Agent OS conversation visible long enough for judges to verify the Binance tool call.
+- [ ] Mention `npm run demo:judge` as the one-command reproducibility check.
 - [ ] Keep real funds minimal; Spot only.
 - [ ] Publish this repository publicly and replace the GitHub placeholder above.
 - [ ] Record a clear screen demo and replace the video placeholder above.
