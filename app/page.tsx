@@ -617,10 +617,16 @@ export default function Home() {
     <main className="app-shell">
       <header className="topbar">
         <a className="brand" href="#top" aria-label="Keel home">
-          <span className="brand-mark">K</span>
-          <span>Keel</span>
+          <span className="brand-mark" aria-hidden="true">K</span>
+          <span className="brand-copy">
+            <strong>Keel</strong>
+            <small>Trade permission</small>
+          </span>
         </a>
         <div className="topbar-meta">
+          <span className="session-label">
+            {activeScenario ? `CASE ${activeScenario.number}` : "LIVE / DEMO"}
+          </span>
           <a
             className="network-badge network-proof"
             href={AGENT_PROOF_URL}
@@ -630,15 +636,17 @@ export default function Home() {
           >
             <span className="status-dot" /> Binance Agent OS <ExternalLink size={12} />
           </a>
-          <span className="session-label">
-            {activeScenario ? `Judge case ${activeScenario.number}` : "Public market · Demo account"}
-          </span>
         </div>
       </header>
 
       <div className="workspace" id="top">
         <aside className="risk-rail">
+          <div className="rail-masthead">
+            <span>Control panel</span>
+            <strong>SPOT / 01</strong>
+          </div>
           <section className="account-block">
+            <div className="rail-section-label"><span>01</span> Capital</div>
             <div className="eyebrow">Protected equity</div>
             <div className="equity-value">{money(account.equity)}</div>
             <div className="account-line">
@@ -649,7 +657,7 @@ export default function Home() {
 
           <section className="risk-meter" aria-label="Daily loss buffer">
             <div className="section-heading">
-              <span>Daily loss buffer</span>
+              <span><em>02</em> Daily loss buffer</span>
               <strong>{dailyLossBuffer}%</strong>
             </div>
             <div className="meter-track">
@@ -664,7 +672,7 @@ export default function Home() {
 
           <section className="rules-block">
             <div className="section-heading">
-              <span>Active rulebook</span>
+              <span><em>03</em> Active rulebook</span>
               <button className="rule-edit-button" type="button" onClick={openRulebook}>
                 <SlidersHorizontal size={13} /> Edit
               </button>
@@ -701,7 +709,13 @@ export default function Home() {
 
         <section className="main-panel">
           <div className="command-section">
-            <div className="section-kicker">Pre-trade check</div>
+            <div className="command-heading">
+              <div>
+                <div className="section-kicker">Decision workspace</div>
+                <h2>Check the trade before it moves.</h2>
+              </div>
+              <p>Describe one Spot buy. Your rulebook controls the size.</p>
+            </div>
             <div className="command-box">
               <textarea
                 value={intent}
@@ -751,7 +765,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="market-strip">
+          <div className="market-strip" aria-label="Current market evidence">
             <div className="market-identity">
               <span className="asset-glyph">{analysis.symbol.slice(0, 1)}</span>
               <div>
@@ -780,11 +794,14 @@ export default function Home() {
             </div>
           </div>
 
-          <div className={`decision-card decision-${analysis.decision.toLowerCase()}`}>
+          <div
+            className={`decision-card decision-${analysis.decision.toLowerCase()}`}
+            data-decision={analysis.decision}
+          >
             <div className="decision-header">
               <div>
                 <div className="decision-label">
-                  <span>{analysis.decision}</span> Risk decision · {analysis.primaryCode.replaceAll("_", " ")}
+                  <span>{analysis.decision}</span> Policy result / {analysis.primaryCode.replaceAll("_", " ")}
                 </div>
                 <h1>{display.title}</h1>
                 <p>{display.text}</p>
@@ -799,7 +816,7 @@ export default function Home() {
             <div className="decision-grid">
               <section className="evidence-panel">
                 <div className="panel-title">
-                  <span>Evidence</span>
+                  <span>04 / Evidence ledger</span>
                   <span>05 checks</span>
                 </div>
                 <div className="evidence-list">
@@ -817,7 +834,7 @@ export default function Home() {
 
               <section className="order-panel">
                 <div className="panel-title">
-                  <span>Safe order draft</span>
+                  <span>05 / Safe order draft</span>
                   <span>Spot · Limit</span>
                 </div>
                 <dl className="order-table">
