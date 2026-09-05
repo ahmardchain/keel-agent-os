@@ -503,6 +503,7 @@ a:focus-visible {
 
 .capital-title > span:last-child,
 .capital-metric {
+  display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
